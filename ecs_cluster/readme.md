@@ -19,7 +19,6 @@ Terraform module for creating and managing an AWS ECS cluster.
 
 ECS is the EC2 Container Service.  It provides an AWS-native infrastructure for running Docker containers.  Detailed information on the service is available on [its official site](https://aws.amazon.com/ecs/), or see "Suggested Reading", below.
 
-This module is the NextGen official ECS implementation, and along with the NextGen-provided encrypted ECS AMI, produces a cluster that complies to security requirements.  Check with the [NextGen DevOps team](https://nextgen.slack.com/messages/C5WGXPWGG) for details or help with compliance.
 
 Major resources created by this module include:
 * Container instance autoscaling groups, security groups, and IAM roles
@@ -41,8 +40,6 @@ To make full use of a cluster you will still need to add:
   * ECR repositories: [aws_ecr_repository](https://www.terraform.io/docs/providers/aws/r/ecr_repository.html)
 
 
-## Feedback
 
-For questions, bugs, and pull requests, use the [#devops-engineering](https://nextgen.slack.com/messages/C5WGXPWGG) channel or email <devops-engineering@nextgen.com>.
 
 
