@@ -1,0 +1,51 @@
+[
+    {
+      "name": "dd-agent",
+      "image": "${docker_image}",
+      "cpu": 10,
+      "memoryReservation": 256,
+      "essential": true,
+      "mountPoints": [
+        {
+          "containerPath": "/var/run/docker.sock",
+          "sourceVolume": "docker_sock"
+        },
+        {
+          "containerPath": "/host/sys/fs/cgroup",
+          "sourceVolume": "cgroup",
+          "readOnly": true
+        },
+        {
+          "containerPath": "/host/proc",
+          "sourceVolume": "proc",
+          "readOnly": true
+        }
+      ],
+      "environment": [
+        {
+          "name": "API_KEY",
+          "value": "${api_key}"
+        },
+        {
+          "name": "DD_CONF_LOG_TO_SYSLOG",
+          "value": "yes"
+        },
+        {
+          "name": "DD_LOGS_STDOUT",
+          "value": "yes"
+        },
+        {
+          "name": "DD_COLLECT_LABELS_AS_TAGS",
+          "value": "${datadog_labels_as_tags}"
+        }
+      ],
+      "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+              "awslogs-group": "${name}-container",
+              "awslogs-region": "${aws_region}",
+              "awslogs-stream-prefix": "dd-agent"
+          }
+      }
+    }
+]

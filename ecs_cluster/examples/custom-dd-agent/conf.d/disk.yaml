@@ -1,0 +1,10 @@
+init_config: null
+instances:
+    -
+        use_mount: false
+        file_system_blacklist:
+            - tmpfs$
+            - rootfs$
+            - autofs$
+        mount_point_blacklist:
+            - /host/proc/sys/fs/binfmt_misc

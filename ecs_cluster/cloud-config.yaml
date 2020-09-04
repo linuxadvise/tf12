@@ -1,0 +1,89 @@
+#cloud-config
+repo_update: true
+repo_upgrade: security
+write_files:
+    - path: /root/configure.sh
+      permissions: '0755'
+      content: |
+        #!/usr/bin/env bash
+        set -x
+        # redirect stdout/err to syslog so we can troubleshoot
+        exec 1> >(logger -s -t user-data) 2>&1
+        CLUSTER="${tf_cluster_name}"
+
+        echo ECS_CLUSTER="$CLUSTER" >> /etc/ecs/ecs.config
+        echo ECS_LOGLEVEL=debug >> /etc/ecs/ecs.config
+
+        yum install -y aws-cli jq awslogs
+        sudo yum update -y ecs-init
+
+        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+        AZ=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+        REGION=$${AZ:0:$${#AZ} - 1}
+
+        # Terraform will send in "true" as 1
+        if [[ ${tf_enable_xray} -eq 1 ]]; then
+          XRAY_DAEMON_VERSION=3.0.1
+
+          curl https://s3.dualstack.$REGION.amazonaws.com/aws-xray-assets.$REGION/xray-daemon/aws-xray-daemon-$XRAY_DAEMON_VERSION.rpm -o /home/ec2-user/xray.rpm
+          yum install -y /home/ec2-user/xray.rpm
+
+          sed -i \
+            -e "s|127.0.0.1|0.0.0.0|" \
+            /etc/amazon/xray/cfg.yaml
+
+          systemctl restart xray.service
+        fi
+
+        CWL_LOG_GROUP_NAME="$CLUSTER"-ecs
+        CWL_LOG_STREAM_PREFIX="$CLUSTER"/"$INSTANCE_ID"
+
+        cat <<EOF > /etc/awslogs/awslogs.conf
+        [general]
+        state_file = /var/lib/awslogs/agent-state
+
+        [/var/log/dmesg]
+        file = /var/log/dmesg
+        log_group_name = $CWL_LOG_GROUP_NAME
+        log_stream_name = $CWL_LOG_STREAM_PREFIX/dmesg
+
+        [/var/log/messages]
+        file = /var/log/messages
+        log_group_name = $CWL_LOG_GROUP_NAME
+        log_stream_name = $CWL_LOG_STREAM_PREFIX/messages
+        datetime_format = %b %d %H:%M:%S
+
+        [/var/log/docker]
+        file = /var/log/docker
+        log_group_name = $CWL_LOG_GROUP_NAME
+        log_stream_name = $CWL_LOG_STREAM_PREFIX/docker
+        datetime_format = %Y-%m-%dT%H:%M:%S.%f
+
+        [/var/log/ecs/ecs-init.log]
+        file = /var/log/ecs/ecs-init.log.*
+        log_group_name = $CWL_LOG_GROUP_NAME
+        log_stream_name = $CWL_LOG_STREAM_PREFIX/ecs-init
+        datetime_format = %Y-%m-%dT%H:%M:%SZ
+
+        [/var/log/ecs/ecs-agent.log]
+        file = /var/log/ecs/ecs-agent.log.*
+        log_group_name = $CWL_LOG_GROUP_NAME
+        log_stream_name = $CWL_LOG_STREAM_PREFIX/ecs-agent
+        datetime_format = %Y-%m-%dT%H:%M:%SZ
+
+        [/var/log/ecs/audit.log]
+        file = /var/log/ecs/audit.log.*
+        log_group_name = $CWL_LOG_GROUP_NAME
+        log_stream_name = $CWL_LOG_STREAM_PREFIX/ecs-audit
+        datetime_format = %Y-%m-%dT%H:%M:%SZ
+        EOF
+
+        sed -i -e "s/us-east-1/$${REGION}/g" /etc/awslogs/awscli.conf
+
+        ${tf_custom_userdata}
+
+        systemctl start awslogsd
+        systemctl enable awslogsd.service
+
+runcmd:
+  - /root/configure.sh
